@@ -75,15 +75,34 @@ def authenticate_user(fake_db, username: str, password: str):
         return False
     return user
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """액세스 토큰 생성"""
-    to_encode = data.copy()
+def create_access_token(user: UserInDB, expires_delta: Optional[timedelta] = None):
+    """액세스 토큰 생성
+    
+    Args:
+        user (UserInDB): 사용자 정보
+        expires_delta (Optional[timedelta], optional): 만료 시간. Defaults to None.
+    
+    Returns:
+        str: 생성된 JWT 토큰
+    """
+    # 토큰에 포함할 사용자 정보
+    token_data = {
+        "sub": user.username,
+        "email": user.email,
+        "full_name": user.full_name,
+        "type": "access",
+        "iat": datetime.utcnow()  # 토큰 발급 시간
+    }
+    
+    # 만료 시간 설정
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire, "type": "access"})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    token_data["exp"] = expire
+    
+    # JWT 토큰 생성
+    encoded_jwt = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 def create_refresh_token(data: dict):
@@ -102,24 +121,60 @@ def create_refresh_token(data: dict):
     }
     return refresh_token
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    """현재 사용자 확인"""
+def verify_access_token(token: str) -> dict:
+    """액세스 토큰 검증
+    
+    Returns:
+        dict: 토큰의 페이로드
+    Raises:
+        HTTPException: 토큰이 유효하지 않은 경우
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
     try:
+        # JWT 디코딩 및 서명 확인
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        
+        # 필수 클레임 확인
         username: str = payload.get("sub")
         token_type: str = payload.get("type")
+        exp: int = payload.get("exp")
+        
+        # 토큰 타입 확인
         if username is None or token_type != "access":
             raise credentials_exception
+            
+        # 만료 시간 확인
+        if datetime.fromtimestamp(exp) < datetime.utcnow():
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has expired",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        return payload
+        
     except JWTError:
         raise credentials_exception
-    user = get_user(fake_users_db, username)
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    """현재 사용자 확인"""
+    # 액세스 토큰 검증
+    payload = verify_access_token(token)
+    
+    # 사용자 정보 조회
+    user = get_user(fake_users_db, payload["sub"])
     if user is None:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
     return user
 
 def verify_refresh_token(refresh_token: str):
@@ -154,7 +209,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     # 액세스 토큰 생성
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        user=user, expires_delta=access_token_expires
     )
     
     # 리프레시 토큰 생성
