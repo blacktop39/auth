@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "auth"
+version = "0.1.0"
+description = ""
+authors = ["blacktop39 <blacktop39@users.noreply.github.com>"]
+packages = [
+    { include = "auth",   from = "src"}
+]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115.6"
+uvicorn = "^0.34.0"
+passlib = {version = "1.7.4", extras = ["bcrypt"]}
+python-jose = {version = "3.3.0", extras = ["cryptography"]}
+python-multipart = "0.0.7"
+pydantic-settings = "^2.7.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
