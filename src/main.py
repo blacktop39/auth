@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from api.v1 import auth  # auth.py 파일에서 라우터를 불러옴
 
 app = FastAPI(
