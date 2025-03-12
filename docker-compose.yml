@@ -1,0 +1,18 @@
+version: "3.1"
+
+services:
+  mariadb:
+    image: mariadb:latest
+    container_name: mariadb_auth
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: yourpassword      # 루트 비밀번호 설정
+      MYSQL_DATABASE: authdb                  # 초기 데이터베이스 이름
+      MYSQL_USER: authuser                    # 일반 사용자 이름
+      MYSQL_PASSWORD: authpassword            # 일반 사용자 비밀번호
+    ports:
+      - "3306:3306"
+    volumes:
+      - C:\db:/var/lib/mysql
+
+volumes:

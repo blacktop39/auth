@@ -1,7 +1,7 @@
-# src/services/auth_service.py
 from datetime import timedelta
 from core.security import create_access_token, hash_password, verify_password
-from logger import logger  # 이전에 분리한 logger 모듈
+from core.config import settings
+from logger import logger  # logger.py에서 공통 로깅 모듈 import
 
 # 가짜 사용자 데이터베이스 예제
 fake_users_db = {
@@ -14,8 +14,7 @@ fake_users_db = {
 
 def authenticate_user(username: str, password: str) -> str:
     """
-    가짜 데이터베이스에서 사용자를 찾고 비밀번호를 검증한 후,
-    JWT 액세스 토큰을 생성하여 반환합니다.
+    가짜 데이터베이스에서 사용자를 찾고, 비밀번호 검증에 성공하면 JWT 토큰을 생성하여 반환합니다.
     """
     logger.info(f"Attempting to authenticate user: {username}")
     user = fake_users_db.get(username)
@@ -27,7 +26,7 @@ def authenticate_user(username: str, password: str) -> str:
         logger.warning(f"Invalid password for user: {username}")
         return None
 
-    access_token_expires = timedelta(minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30)))
+    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     token = create_access_token(
         data={"sub": username}, expires_delta=access_token_expires
     )
@@ -37,7 +36,7 @@ def authenticate_user(username: str, password: str) -> str:
 def create_user(username: str, password: str) -> dict:
     """
     새 사용자를 생성하여 가짜 DB에 저장합니다.
-    중복 사용자가 있을 경우 예외를 발생시킵니다.
+    이미 사용자가 있으면 예외를 발생시킵니다.
     """
     if username in fake_users_db:
         logger.warning(f"User already exists: {username}")
